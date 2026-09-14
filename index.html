@@ -1268,6 +1268,31 @@ button,a,input{touch-action:manipulation;}
 @media(max-width:800px){.progress-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.learning-progress{width:calc(100% - 28px);padding:15px}.progress-grid{grid-template-columns:1fr}.learning-progress-title{font-size:19px}.continue-btn{width:100%}}
 </style>
+
+<style id="child-interaction-upgrade">
+/* ===== Simple child interaction upgrade ===== */
+.child-coach{display:flex;align-items:center;gap:10px;max-width:820px;margin:0 auto 12px;padding:10px 14px;background:#fff;border:2px solid #e6eef3;border-radius:18px;box-shadow:0 4px 0 rgba(55,43,77,.06)}
+.child-coach .coach-face{font-size:30px;line-height:1}
+.child-coach .coach-msg{font-family:'Baloo 2','Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--ink,#263746)}
+.child-coach.pop{animation:coachPop .28s ease}
+@keyframes coachPop{50%{transform:scale(1.025)}}
+.child-progress{max-width:820px;margin:0 auto 12px;padding:0 20px;font-family:'Baloo 2','Nunito',sans-serif;font-weight:800;color:var(--ink-soft,#687789);font-size:13px}
+.child-progress .bar{height:8px;background:#edf2f5;border-radius:999px;overflow:hidden;margin-top:5px}
+.child-progress .fill{height:100%;width:0;background:var(--sky-deep,#2fa9c7);border-radius:999px;transition:width .3s ease}
+.child-tap{transition:transform .12s ease,box-shadow .12s ease}
+.child-tap:active{transform:scale(.96)!important}
+.child-tap.correct-flash{animation:correctFlash .45s ease}
+.child-tap.wrong-flash{animation:wrongFlash .45s ease}
+@keyframes correctFlash{50%{transform:scale(1.04);box-shadow:0 0 0 5px rgba(85,185,107,.18)}}
+@keyframes wrongFlash{50%{transform:translateX(-3px)}}
+.child-fact{display:none;margin:10px auto 0;max-width:620px;padding:10px 14px;border-radius:14px;background:#f5fbfd;border:2px solid #ccebf3;text-align:center;font-weight:800;color:var(--ink,#263746);animation:fadeIn .25s ease}
+.child-fact.show{display:block}
+@media(max-width:600px){
+ .child-coach{margin-left:12px;margin-right:12px;padding:9px 11px}.child-coach .coach-face{font-size:26px}.child-coach .coach-msg{font-size:14px}
+ .child-progress{padding:0 14px;font-size:12px}
+}
+</style>
+
 </head>
 <body>
 
@@ -3485,6 +3510,15 @@ function pickPreferredVoice(){
   if(!v) v = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en'));
   return v || null;
 }
+function pickPreferredArabicVoice(){
+  const voices = window.__voiceCache || [];
+  if(!voices.length) return null;
+  const femaleNames = ['female','zira','heba','laila','maged','microsoft hoda','google arabic'];
+  let v = voices.find(v => v.lang && /^(ar)(-|_)/i.test(v.lang) && femaleNames.some(n => v.name.toLowerCase().includes(n)));
+  if(!v) v = voices.find(v => v.lang && /^(ar)(-|_)/i.test(v.lang) && /female|woman|girl/i.test(v.name));
+  if(!v) v = voices.find(v => v.lang && /^(ar)(-|_)/i.test(v.lang));
+  return v || null;
+}
 
 function changeName(){
   studentNameCache = '';
@@ -5275,6 +5309,7 @@ function speakAr(text, rate){
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang='ar-SA'; u.rate = rate || 0.8; u.pitch = 1.1;
+  const v = pickPreferredArabicVoice(); if(v) u.voice = v;
   window.speechSynthesis.speak(u);
 }
 function playTone(freq, duration, type, gainVal){
@@ -5895,6 +5930,8 @@ function triggerConfetti(){
       var u = new SpeechSynthesisUtterance(text);
       u.lang = /[\u0600-\u06FF]/.test(text) ? 'ar-SA' : 'en-US';
       u.rate = 0.92;
+      var av = /[\u0600-\u06FF]/.test(text) ? pickPreferredArabicVoice() : pickPreferredVoice();
+      if(av) u.voice = av;
       window.speechSynthesis.speak(u);
     }catch(e){}
   }
@@ -6118,5 +6155,268 @@ if('serviceWorker' in navigator && (location.protocol === 'http:' || location.pr
 })();
 </script>
 
+
+<script id="child-interaction-js">
+(function(){
+  const msgs={start:'Ready? Let’s learn! 👋',correct:'Great job! ⭐',wrong:'Almost! Try again! 💪',done:'You did it! 🎉',explore:'Tap an item to discover more!'};
+  function coach(message){
+    let el=document.getElementById('childCoach');
+    if(!el){
+      const active=document.querySelector('.step.active, #page-hub main, main');
+      if(!active)return;
+      el=document.createElement('div'); el.id='childCoach'; el.className='child-coach';
+      el.innerHTML='<span class="coach-face">🧒</span><span class="coach-msg"></span>';
+      active.parentNode.insertBefore(el,active);
+    }
+    const m=el.querySelector('.coach-msg'); if(m)m.textContent=message;
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
+  window.childCoach=coach;
+  window.childFeedback=function(ok,el){
+    coach(ok?msgs.correct:msgs.wrong);
+    if(el){el.classList.remove('correct-flash','wrong-flash');void el.offsetWidth;el.classList.add(ok?'correct-flash':'wrong-flash');}
+  };
+  function addProgress(){
+    document.querySelectorAll('.step').forEach(function(step){
+      if(step.dataset.childProgress)return;
+      const nav=step.querySelector('.nav-row');
+      if(!nav)return;
+      const all=[...step.parentElement.querySelectorAll('.step')]; const idx=all.indexOf(step); if(idx<0)return;
+      const box=document.createElement('div');box.className='child-progress';
+      box.innerHTML='<span>Step '+(idx+1)+' of '+all.length+'</span><div class="bar"><div class="fill" style="width:'+(((idx+1)/all.length)*100)+'%"></div></div>';
+      step.insertBefore(box,step.firstChild);step.dataset.childProgress='1';
+    });
+  }
+  function enhanceButtons(){
+    document.querySelectorAll('button').forEach(function(b){
+      if(!b.classList.contains('child-tap') && !b.disabled && !b.closest('.nav-row')) b.classList.add('child-tap');
+    });
+  }
+  function observe(){addProgress();enhanceButtons();}
+  document.addEventListener('DOMContentLoaded',function(){
+    coach(msgs.start); observe();
+    const mo=new MutationObserver(observe); mo.observe(document.body,{childList:true,subtree:true});
+  });
+})();
+</script>
+
+
+<script>
+/* ===================== UNIFIED CHILD-FRIENDLY VOICE =====================
+   Keep one clear female voice across the whole platform. The browser/device
+   supplies the actual voice; this selector prefers the same female voice
+   whenever it is available, with Arabic handled separately for pronunciation.
+*/
+(function(){
+  if(!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance==='undefined') return;
+  const synth=window.speechSynthesis;
+  let voices=[];
+  const refresh=()=>{ voices=synth.getVoices()||[]; window.__voiceCache=voices; };
+  refresh();
+  if('onvoiceschanged' in synth) synth.addEventListener('voiceschanged',refresh);
+
+  const femaleEN=[
+    'Microsoft Aria Online (Natural)', 'Microsoft Aria', 'Microsoft Jenny Online (Natural)',
+    'Microsoft Jenny', 'Samantha', 'Google US English', 'Google UK English Female',
+    'Ava', 'Allison', 'Zira', 'Susan', 'Victoria', 'Karen', 'Fiona', 'female'
+  ];
+  const femaleAR=[
+    'Microsoft Hoda Online (Natural)', 'Microsoft Hoda', 'Hoda',
+    'Google Arabic', 'Arabic Female', 'Female Arabic', 'Laila', 'Layla', 'female'
+  ];
+  function findVoice(lang,names){
+    const pool=voices.filter(v=>v.lang && v.lang.toLowerCase().startsWith(lang));
+    for(const n of names){
+      const hit=pool.find(v=>v.name.toLowerCase().includes(n.toLowerCase()));
+      if(hit) return hit;
+    }
+    return pool.find(v=>/female|woman|girl/i.test(v.name)) || pool[0] || null;
+  }
+  function preferred(lang){
+    return lang && lang.toLowerCase().startsWith('ar') ? findVoice('ar',femaleAR) : findVoice('en',femaleEN);
+  }
+  window.__getUnifiedChildVoice=preferred;
+
+  // Intercept every speech call so chapter-specific functions cannot switch voices.
+  const originalSpeak=synth.speak.bind(synth);
+  if(!synth.__unifiedChildVoice){
+    synth.speak=function(utterance){
+      try{
+        const lang=(utterance && utterance.lang)||'en-US';
+        const v=preferred(lang);
+        if(v) utterance.voice=v;
+        // Consistent, calm, child-friendly delivery without changing phonics pacing.
+        utterance.pitch = (lang.toLowerCase().startsWith('ar') ? 1.06 : 1.08);
+      }catch(e){}
+      return originalSpeak(utterance);
+    };
+    synth.__unifiedChildVoice=true;
+  }
+
+  // Existing helper functions also use this picker; make it point to the same voice.
+  window.pickPreferredVoice=function(){ return preferred('en-US'); };
+
+  // Re-apply after voices become available (common in Chrome/Edge).
+  if('onvoiceschanged' in synth){
+    synth.addEventListener('voiceschanged',function(){
+      refresh();
+      window.__voiceCache=voices;
+    });
+  }
+})();
+</script>
+
 </body>
 </html>
+
+<style id="v10-mobile-tablet-final">
+/* V10 — final phone/tablet pass: prevent overflow, keep touch controls usable */
+*,*::before,*::after{box-sizing:border-box;}
+html,body{max-width:100%;overflow-x:hidden;}
+img,svg,video,canvas{max-width:100%;height:auto;}
+button,input,select,textarea{max-width:100%;}
+
+/* Lesson layout */
+.step{width:100%;max-width:100%;}
+.step .panel{width:100%;max-width:980px;overflow:hidden;}
+.panel{overflow-wrap:anywhere;word-break:normal;}
+
+/* Navigation buttons: always stay inside the lesson panel */
+.nav-row,.panel .nav-row,.step .nav-row{
+  width:min(100%,820px);
+  max-width:820px;
+  margin-left:auto;
+  margin-right:auto;
+  padding-left:0;
+  padding-right:0;
+  gap:12px;
+}
+.nav-row > *{min-width:0;max-width:100%;}
+button.btn{min-height:50px;min-width:110px;white-space:normal;}
+
+/* Touch targets */
+button,a{ -webkit-tap-highlight-color:transparent; }
+@media (max-width:900px){
+  .step{padding:24px 12px 48px!important;}
+  .step .panel{padding:24px 18px!important;border-radius:22px!important;}
+  .nav-row,.panel .nav-row,.step .nav-row{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    align-items:stretch;
+    width:100%;
+    gap:10px!important;
+    padding:0!important;
+  }
+  .nav-row .btn,.panel .nav-row .btn,.step .nav-row .btn{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    min-height:50px!important;
+    padding:11px 10px!important;
+  }
+
+  /* Subject/chapter cards */
+  .subject-choice-wrap{padding-left:12px!important;padding-right:12px!important;}
+  .subject-choice-wrap .science-chapter-grid{width:100%!important;}
+  .science-chapter-card{min-width:0!important;width:100%!important;}
+
+  /* Dashboard */
+  #page-hub main{width:100%!important;max-width:760px!important;}
+  #page-hub .island{width:100%!important;min-width:0!important;}
+  #page-hub .learning-progress{width:calc(100% - 24px)!important;}
+
+  /* Avoid very wide game boards on tablets/phones */
+  .number-grid{max-width:100%!important;}
+  .number-hero{max-width:100%!important;}
+  .choice-grid3{max-width:100%!important;}
+  .sound-info,.math-demo,.count-demo,.game-card3,.build-card3{width:100%;max-width:100%;}
+
+  /* Stories */
+  .stories-wrap{width:100%;max-width:1100px;padding:12px!important;}
+  .story-top{width:100%;padding:10px 4px!important;gap:8px;}
+  .story-brand{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .story-top .section-back-btn{flex-shrink:0;}
+  .story-card{width:100%;max-width:900px;margin-left:auto;margin-right:auto;}
+  .story-picture{max-width:100%;overflow:hidden;}
+  .story-text{max-width:100%;overflow-wrap:anywhere;}
+}
+
+@media (max-width:600px){
+  /* Phone */
+  .topbar-bar{padding:7px 9px!important;gap:7px!important;min-height:52px;}
+  .topbar-bar a.home{font-size:21px!important;}
+  .dots-row{max-width:42vw!important;overflow:hidden;}
+  .dots-row .dot{flex:0 0 auto;}
+
+  .step{padding:18px 8px 36px!important;}
+  .step .panel{padding:18px 12px!important;border-radius:18px!important;}
+  .step-title{font-size:clamp(24px,7.5vw,32px)!important;line-height:1.12!important;}
+  .step-sub{font-size:16px!important;line-height:1.5!important;}
+
+  .nav-row,.panel .nav-row,.step .nav-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;}
+  .nav-row .btn,.panel .nav-row .btn,.step .nav-row .btn{font-size:15px!important;min-height:50px!important;padding:10px 7px!important;}
+
+  /* Common learning grids */
+  .card-grid,.lq-grid,.pick-grid,.fill-grid{grid-template-columns:1fr 1fr!important;gap:10px!important;}
+  .letter-examples{gap:10px!important;}
+  .letter-example{min-width:0!important;flex:1 1 82px;padding:10px 8px!important;}
+  .letter-example .em{font-size:38px!important;}
+  .pill{font-size:20px!important;padding:10px 14px!important;}
+  .match-wrap,.match-cols{gap:10px!important;}
+  .match-col{min-width:0!important;width:100%;}
+  .match-item,.match-btn{width:100%;min-height:50px;}
+
+  /* Math 3 */
+  #page-math3 .number-hero{grid-template-columns:repeat(2,1fr)!important;gap:8px!important;}
+  #page-math3 .number-hero span{font-size:23px!important;padding:12px 8px!important;}
+  #page-math3 .number-grid{grid-template-columns:repeat(5,1fr)!important;gap:5px!important;}
+  #page-math3 .number-grid span{padding:7px 3px!important;font-size:14px;}
+  #page-math3 .choice-grid3{grid-template-columns:1fr 1fr!important;gap:9px!important;}
+  #page-math3 .choice-grid3 button{font-size:21px!important;padding:12px 8px!important;}
+
+  /* Science 3 */
+  #page-sci3 .living-hero{grid-template-columns:1fr 1fr!important;gap:9px!important;}
+  #page-sci3 .living-hero div{padding:14px 8px!important;font-size:38px!important;}
+  #page-sci3 .science-fact-grid{grid-template-columns:1fr!important;gap:10px!important;}
+  .sort-item3,.sort-target3{font-size:19px!important;padding:11px 12px!important;}
+
+  /* Science 2 */
+  #page-sci2 .sci2-choice-grid,#page-sci2 .sci2-answer-grid{grid-template-columns:1fr 1fr!important;gap:8px!important;}
+  #page-sci2 .sci2-choice,#page-sci2 .sci2-answer{min-height:92px!important;font-size:16px!important;padding:9px!important;}
+  #page-sci2 .shadow-lab{height:200px!important;}
+
+  /* English Chapter 5 */
+  #page-ch5 .phonics-word{font-size:40px!important;max-width:100%;overflow-wrap:anywhere;}
+  #page-ch5 .phonics-vowel-grid,#page-ch5 .read-practice-grid5,#page-ch5 .vowel-sort-grid{grid-template-columns:1fr 1fr!important;gap:9px!important;}
+  #page-ch5 .sort-word{font-size:21px!important;padding:10px 6px!important;}
+  #page-ch5 .practice-word{font-size:29px!important;}
+  #page-ch5 .quiz-q{padding:15px 10px!important;}
+  #page-ch5 .quiz-q h3{font-size:20px!important;}
+  #page-ch5 .quiz-q button{min-width:0!important;width:auto;min-height:56px!important;font-size:24px!important;margin:4px!important;padding:10px 17px!important;}
+
+  /* Stories */
+  .story-top{display:grid!important;grid-template-columns:auto 1fr auto;align-items:center;}
+  .story-brand{text-align:center;font-size:17px!important;}
+  .story-card{padding:14px!important;border-radius:18px!important;}
+  .story-picture{min-height:145px!important;font-size:58px!important;padding:12px!important;gap:10px!important;}
+  .story-text{font-size:21px!important;line-height:1.5!important;}
+  .story-small{font-size:15px!important;}
+  .story-audio{min-width:145px!important;font-size:17px!important;}
+  .story-nav .btn{min-width:125px!important;}
+}
+
+@media (max-width:380px){
+  .nav-row,.panel .nav-row,.step .nav-row{grid-template-columns:1fr 1fr!important;}
+  .nav-row .btn,.panel .nav-row .btn,.step .nav-row .btn{font-size:14px!important;padding:9px 5px!important;}
+  .card-grid,.lq-grid,.pick-grid,.fill-grid{gap:8px!important;}
+  .wcard .wword{font-size:22px!important;}
+  .story-text{font-size:19px!important;}
+}
+
+@media (orientation:landscape) and (max-width:900px) and (max-height:600px){
+  .step{padding-top:12px!important;padding-bottom:24px!important;}
+  .step .panel{padding:14px 16px!important;}
+  .story-picture{min-height:120px!important;}
+  .story-text{font-size:20px!important;}
+}
+</style>
