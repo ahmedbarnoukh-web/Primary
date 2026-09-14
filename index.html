@@ -1268,8 +1268,159 @@ button,a,input{touch-action:manipulation;}
 @media(max-width:800px){.progress-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.learning-progress{width:calc(100% - 28px);padding:15px}.progress-grid{grid-template-columns:1fr}.learning-progress-title{font-size:19px}.continue-btn{width:100%}}
 </style>
+<style id="faris-avatar-mic-css">
+.avatar-picker-card{margin-top:16px;}
+.avatar-picker-preview{width:104px;height:104px;margin:0 auto 10px;border-radius:50%;background:#eaf9fb;border:3px solid var(--sky-deep,#2FA9C7);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.avatar-picker-preview svg{width:140px;height:140px;margin-top:12px;}
+.avatar-picker-label{font-family:'Cairo',sans-serif;font-weight:800;font-size:13.5px;color:var(--ink-soft,#6b5f82);margin:10px 0 6px;}
+.avatar-swatch-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;}
+.avatar-swatch{width:32px;height:32px;border-radius:50%;border:3px solid transparent;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.12);padding:0;}
+.avatar-swatch.selected{border-color:var(--ink,#372B4D);transform:scale(1.12);}
+.avatar-accessory-row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+.avatar-accessory-btn{width:40px;height:40px;border-radius:12px;border:2px solid #e7e0d4;background:#fff;font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.avatar-accessory-btn.selected{border-color:var(--sky-deep,#2FA9C7);background:#eaf9fb;}
+.mic-practice-btn{border:none;background:var(--coral,#FF6B5E);color:#fff;width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;box-shadow:0 3px 0 #c94c41;margin-inline-start:6px;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;}
+.mic-practice-btn.listening{animation:micPulse 1s ease-in-out infinite;}
+@keyframes micPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+.mic-practice-btn.mic-ok{background:var(--grass,#7CB544);box-shadow:0 3px 0 #5C9432;}
+.mic-practice-btn.mic-try{background:#c94c41;}
+@media(max-width:480px){.avatar-picker-preview{width:88px;height:88px;}.avatar-picker-preview svg{width:118px;height:118px;margin-top:10px;}}
+</style>
 </head>
 <body>
+
+<script>
+/* ===================== FarisAvatar - customizable mascot (color + accessory) ===================== */
+window.FarisAvatar = (function(){
+  var COLORS = [
+    {key:'sky', label:'Sky', main:'#54C6E0', deep:'#2FA9C7'},
+    {key:'coral', label:'Coral', main:'#FFAA9E', deep:'#FF6B5E'},
+    {key:'violet', label:'Violet', main:'#B7A9E6', deep:'#8E7CC3'},
+    {key:'grass', label:'Grass', main:'#A8DD7E', deep:'#7CB544'},
+    {key:'sun', label:'Gold', main:'#FFE08A', deep:'#E0A415'}
+  ];
+  var ACCESSORIES = [
+    {key:'none', icon:'🚫', label:'None'},
+    {key:'cap', icon:'🧢', label:'Cap'},
+    {key:'bandana', icon:'🏴', label:'Bandana'},
+    {key:'bow', icon:'🎀', label:'Bow'},
+    {key:'glasses', icon:'🕶️', label:'Glasses'},
+    {key:'star', icon:'⭐', label:'Star'}
+  ];
+  var BASE = '<svg viewBox="0 0 220 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    + '<path d="M75 78 L67 40 L92 58 Z" fill="var(--sun)"/>'
+    + '<path d="M145 78 L153 40 L128 58 Z" fill="var(--sun)"/>'
+    + '<ellipse cx="110" cy="108" rx="66" ry="62" fill="{{MAIN}}"/>'
+    + '<ellipse cx="110" cy="146" rx="47" ry="35" fill="var(--cream)"/>'
+    + '<path d="M60 88 Q42 118 60 150 Q52 122 68 96 Z" fill="{{DEEP}}"/>'
+    + '<path d="M160 88 Q178 118 160 150 Q168 122 152 96 Z" fill="{{DEEP}}"/>'
+    + '<circle cx="88" cy="102" r="13" fill="#fff"/>'
+    + '<circle cx="132" cy="102" r="13" fill="#fff"/>'
+    + '<circle cx="91" cy="104" r="7" fill="var(--ink)"/>'
+    + '<circle cx="129" cy="104" r="7" fill="var(--ink)"/>'
+    + '<circle cx="93" cy="101" r="2.3" fill="#fff"/>'
+    + '<circle cx="131" cy="101" r="2.3" fill="#fff"/>'
+    + '<path d="M99 122 Q110 132 121 122" stroke="var(--ink)" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+    + '<path d="M65 66 Q110 46 155 66 Q150 54 110 50 Q70 54 65 66 Z" fill="var(--sun)"/>'
+    + '{{ACCESSORY}}'
+    + '</svg>';
+  var ACC_SVG = {
+    none: '',
+    cap: '<path d="M74 54 Q110 24 146 54 L146 64 Q110 50 74 64 Z" fill="{{DEEP}}"/><rect x="70" y="60" width="80" height="8" rx="4" fill="{{DEEP}}"/>',
+    bandana: '<path d="M82 150 L138 150 L110 178 Z" fill="{{DEEP}}"/><circle cx="96" cy="150" r="3.2" fill="#fff"/><circle cx="124" cy="150" r="3.2" fill="#fff"/><circle cx="110" cy="163" r="3.2" fill="#fff"/>',
+    bow: '<path d="M92 141 L107 150 L92 159 Z" fill="{{DEEP}}"/><path d="M128 141 L113 150 L128 159 Z" fill="{{DEEP}}"/><circle cx="110" cy="150" r="4.5" fill="var(--coral)"/>',
+    glasses: '<circle cx="88" cy="102" r="16" fill="none" stroke="{{DEEP}}" stroke-width="3.4"/><circle cx="132" cy="102" r="16" fill="none" stroke="{{DEEP}}" stroke-width="3.4"/><line x1="103" y1="101" x2="117" y2="101" stroke="{{DEEP}}" stroke-width="3.4"/><line x1="73" y1="98" x2="64" y2="92" stroke="{{DEEP}}" stroke-width="3.4"/><line x1="147" y1="98" x2="156" y2="92" stroke="{{DEEP}}" stroke-width="3.4"/>',
+    star: '<g transform="translate(150,58)"><polygon points="12,0 15,8 24,8 17,13 19,22 12,17 5,22 7,13 0,8 9,8" fill="{{DEEP}}" stroke="#fff" stroke-width="1"/></g>'
+  };
+  function safeGet(k,d){ try{ return localStorage.getItem(k) || d; }catch(e){ return d; } }
+  function safeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+  function getPrefs(){
+    var c = safeGet('fursan_avatar_color','sky');
+    var a = safeGet('fursan_avatar_accessory','none');
+    if(!COLORS.some(function(x){return x.key===c;})) c='sky';
+    if(!ACC_SVG.hasOwnProperty(a)) a='none';
+    return {color:c, accessory:a};
+  }
+  function colorObj(key){ for(var i=0;i<COLORS.length;i++){ if(COLORS[i].key===key) return COLORS[i]; } return COLORS[0]; }
+  function svgFor(prefs){
+    prefs = prefs || getPrefs();
+    var c = colorObj(prefs.color);
+    var acc = (ACC_SVG.hasOwnProperty(prefs.accessory) ? ACC_SVG[prefs.accessory] : '').split('{{DEEP}}').join(c.deep);
+    return BASE.split('{{MAIN}}').join(c.main).split('{{DEEP}}').join(c.deep).replace('{{ACCESSORY}}', acc);
+  }
+  var registeredPreviews = [];
+  function renderAll(){
+    var svg = svgFor();
+    document.querySelectorAll('.faris-icon').forEach(function(el){ el.innerHTML = svg; });
+    document.querySelectorAll('.faris-companion-avatar').forEach(function(el){ el.innerHTML = svg; });
+    registeredPreviews.forEach(function(el){ if(el) el.innerHTML = svg; });
+  }
+  function setColor(key){ safeSet('fursan_avatar_color', key); renderAll(); }
+  function setAccessory(key){ safeSet('fursan_avatar_accessory', key); renderAll(); }
+  function mountPicker(colorRowEl, accessoryRowEl, previewEl){
+    if(previewEl){ registeredPreviews.push(previewEl); previewEl.innerHTML = svgFor(); }
+    if(colorRowEl){
+      colorRowEl.innerHTML='';
+      COLORS.forEach(function(c){
+        var b=document.createElement('button'); b.type='button'; b.className='avatar-swatch';
+        b.style.background = c.deep; b.setAttribute('aria-label', c.label); b.title = c.label;
+        if(getPrefs().color===c.key) b.classList.add('selected');
+        b.onclick=function(){
+          colorRowEl.querySelectorAll('.avatar-swatch').forEach(function(x){x.classList.remove('selected');});
+          b.classList.add('selected'); setColor(c.key);
+        };
+        colorRowEl.appendChild(b);
+      });
+    }
+    if(accessoryRowEl){
+      accessoryRowEl.innerHTML='';
+      ACCESSORIES.forEach(function(a){
+        var b=document.createElement('button'); b.type='button'; b.className='avatar-accessory-btn';
+        b.textContent=a.icon; b.setAttribute('aria-label', a.label); b.title = a.label;
+        if(getPrefs().accessory===a.key) b.classList.add('selected');
+        b.onclick=function(){
+          accessoryRowEl.querySelectorAll('.avatar-accessory-btn').forEach(function(x){x.classList.remove('selected');});
+          b.classList.add('selected'); setAccessory(a.key);
+        };
+        accessoryRowEl.appendChild(b);
+      });
+    }
+  }
+  function init(){ renderAll(); }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
+  return {getPrefs:getPrefs, setColor:setColor, setAccessory:setAccessory, svgFor:svgFor, renderAll:renderAll, mountPicker:mountPicker, COLORS:COLORS, ACCESSORIES:ACCESSORIES};
+})();
+</script>
+
+<script>
+/* ===================== FarisSpeechRec - shared pronunciation-practice helper ===================== */
+window.FarisSpeechRec = (function(){
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function supported(){ return !!SR; }
+  function practice(word, lang, onDone){
+    if(!SR){ onDone(null); return; }
+    try{
+      var rec = new SR();
+      rec.lang = lang || 'en-US';
+      rec.maxAlternatives = 3;
+      rec.interimResults = false;
+      var done = false;
+      rec.onresult = function(e){
+        done = true;
+        var alts = [];
+        for(var i=0;i<e.results[0].length;i++){ alts.push((e.results[0][i].transcript||'').toLowerCase().trim()); }
+        var target = (word||'').toLowerCase().trim();
+        var ok = alts.some(function(a){ return a && (a===target || a.indexOf(target)!==-1 || target.indexOf(a)!==-1); });
+        onDone(ok, alts[0]);
+      };
+      rec.onerror = function(){ if(!done){ done=true; onDone(null); } };
+      rec.onend = function(){ if(!done){ done=true; onDone(null); } };
+      rec.start();
+    }catch(e){ onDone(null); }
+  }
+  return {supported:supported, practice:practice};
+})();
+</script>
 
 <div id="page-welcome">
   <div class="login-wrap">
@@ -1281,6 +1432,13 @@ button,a,input{touch-action:manipulation;}
       <div style="margin-top:6px;">
         <button class="btn primary" id="startBtn">Start the Adventure! 🚀</button>
       </div>
+    </div>
+    <div class="welcome-card avatar-picker-card">
+      <div class="avatar-picker-preview" id="avatarPreviewWelcome"></div>
+      <div class="avatar-picker-label ar">اختر شكل فارس ✨</div>
+      <div class="avatar-swatch-row" id="avatarColorRowWelcome"></div>
+      <div class="avatar-picker-label ar">إكسسوار</div>
+      <div class="avatar-accessory-row" id="avatarAccessoryRowWelcome"></div>
     </div>
     <div class="dedication">
       <div class="dedication-main">🎓 Made with ❤️ by <b>Eyad Ahmed Ali</b><br>for my dear classmates</div>
@@ -1349,6 +1507,22 @@ button,a,input{touch-action:manipulation;}
   </div>
 </div>
 
+<div id="avatarPickerModal" class="tips-modal-backdrop" style="display:none;" onclick="if(event.target===this) this.style.display='none';">
+  <div class="tips-modal ar" dir="rtl" style="max-width:380px;">
+    <div class="tips-modal-header">
+      <h2>🎨 خصص فارس</h2>
+      <button class="tips-close-btn" onclick="document.getElementById('avatarPickerModal').style.display='none';" aria-label="Close">✕</button>
+    </div>
+    <div class="tips-modal-body">
+      <div class="avatar-picker-preview" id="avatarPreviewModal"></div>
+      <div class="avatar-picker-label">اللون</div>
+      <div class="avatar-swatch-row" id="avatarColorRowModal"></div>
+      <div class="avatar-picker-label">إكسسوار</div>
+      <div class="avatar-accessory-row" id="avatarAccessoryRowModal"></div>
+    </div>
+  </div>
+</div>
+
 <div id="welcomeFlash">
   <div class="welcome-flash-inner">
     <span class="welcome-flash-mascot">🐴✨</span>
@@ -1356,6 +1530,25 @@ button,a,input{touch-action:manipulation;}
     <div class="welcome-flash-sub" id="welcomeFlashSub">Let’s start the adventure! 🚀</div>
   </div>
 </div>
+
+<script>
+(function(){
+  function mountAll(){
+    if(!window.FarisAvatar) return;
+    window.FarisAvatar.mountPicker(
+      document.getElementById('avatarColorRowWelcome'),
+      document.getElementById('avatarAccessoryRowWelcome'),
+      document.getElementById('avatarPreviewWelcome')
+    );
+    window.FarisAvatar.mountPicker(
+      document.getElementById('avatarColorRowModal'),
+      document.getElementById('avatarAccessoryRowModal'),
+      document.getElementById('avatarPreviewModal')
+    );
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', mountAll); } else { mountAll(); }
+})();
+</script>
 
 <div id="page-hub" style="display:none;">
 
@@ -1370,7 +1563,7 @@ button,a,input{touch-action:manipulation;}
     <span class="mascot-char" style="display:inline-flex;"></span>
     <p class="tagline" id="hubGreeting">Let’s learn! 🐴</p>
     <div class="stars-bar">⭐ <span id="starCount">0</span> stars collected so far</div>
-    <div style="margin-top:6px;"><a href="#" onclick="changeName(); return false;" style="font-size:13px; color:var(--ink-soft); text-decoration:underline;">Not me 🙋 — Change name</a></div>
+    <div style="margin-top:6px;"><a href="#" onclick="changeName(); return false;" style="font-size:13px; color:var(--ink-soft); text-decoration:underline;">Not me 🙋 — Change name</a> &nbsp;·&nbsp; <a href="#" onclick="document.getElementById('avatarPickerModal').style.display='flex'; return false;" style="font-size:13px; color:var(--ink-soft); text-decoration:underline;">🎨 Customize Faris</a></div>
 
     <section class="learning-progress" aria-label="Learning progress">
       <div class="learning-progress-head">
@@ -3733,11 +3926,36 @@ phonicsLetters.forEach(o=>{
 });
 const sightGrid = document.getElementById('sightGrid');
 sightWords.forEach(w=>{
+  const wrap = document.createElement('span');
+  wrap.style.display='inline-flex'; wrap.style.alignItems='center';
   const b = document.createElement('button');
   b.className='letter-card sight';
   b.textContent=w;
   b.onclick=()=>speak(w);
-  sightGrid.appendChild(b);
+  wrap.appendChild(b);
+  if(window.FarisSpeechRec && window.FarisSpeechRec.supported()){
+    const mic = document.createElement('button');
+    mic.type='button'; mic.className='mic-practice-btn'; mic.textContent='🎤';
+    mic.setAttribute('aria-label','Practice saying '+w);
+    mic.onclick=(ev)=>{
+      ev.stopPropagation();
+      if(mic.classList.contains('listening')) return;
+      mic.classList.add('listening'); mic.textContent='🔴';
+      window.FarisSpeechRec.practice(w, 'en-US', (ok)=>{
+        mic.classList.remove('listening'); mic.textContent='🎤';
+        if(ok){
+          mic.classList.add('mic-ok'); setTimeout(()=>mic.classList.remove('mic-ok'),900);
+          playCorrect(); addStar(1);
+          if(window.farisSay) window.farisSay(null,'correct');
+        } else if(ok===false){
+          mic.classList.add('mic-try'); setTimeout(()=>mic.classList.remove('mic-try'),900);
+          if(window.farisSay) window.farisSay('Nice try! Listen and say it again 🐾','wrong');
+        }
+      });
+    };
+    wrap.appendChild(mic);
+  }
+  sightGrid.appendChild(wrap);
 });
 
 /* ===================== STEP 2: WORD FAMILY -at ===================== */
@@ -5779,7 +5997,7 @@ function triggerConfetti(){
       if(el.getAttribute('data-faris-injected')) return;
       var wrap = document.createElement('span');
       wrap.className = 'faris-icon';
-      wrap.innerHTML = FARIS_SVG;
+      wrap.innerHTML = (window.FarisAvatar ? window.FarisAvatar.svgFor() : FARIS_SVG);
       el.insertBefore(wrap, el.firstChild);
       el.setAttribute('data-faris-injected','1');
     });
@@ -5839,7 +6057,7 @@ function triggerConfetti(){
     bubbleEl = document.createElement('div');
     bubbleEl.id = 'farisCompanion';
     bubbleEl.setAttribute('aria-live','polite');
-    bubbleEl.innerHTML = '<span class="faris-companion-avatar">'+FARIS_SVG+'</span><span class="faris-companion-bubble"><span class="faris-companion-text"></span></span>';
+    bubbleEl.innerHTML = '<span class="faris-companion-avatar">'+(window.FarisAvatar ? window.FarisAvatar.svgFor() : FARIS_SVG)+'</span><span class="faris-companion-bubble"><span class="faris-companion-text"></span></span>';
     document.body.appendChild(bubbleEl);
     textEl = bubbleEl.querySelector('.faris-companion-text');
   }
@@ -5982,7 +6200,30 @@ if('serviceWorker' in navigator && (location.protocol === 'http:' || location.pr
   const pg=document.getElementById('positionGameA2');
   const posItems=[['ت','تفاح','أول'],['ت','مَتَاح','وسط'],['ت','بِنْت','آخر'],['ث','ثعلب','أول'],['ث','مَثَل','وسط'],['ث','بحث','آخر']];
   posItems.forEach(([letter,word,correct])=>{const c=document.createElement('div');c.className='fill-card';c.innerHTML='<div class="word-line ar"><b>'+word+'</b></div><div class="ar" style="margin:8px 0;font-weight:800;">أين الحرف <b>'+letter+'</b>؟</div><div class="fill-btn-row"></div>';['أول','وسط','آخر'].forEach(o=>{const b=document.createElement('button');b.className='btn ghost ar';b.textContent=o;b.onclick=()=>{if(b.disabled)return;if(o===correct){b.classList.add('right');b.disabled=true;addStar(1);speak('أحسنت')}else{b.classList.add('wrong');setTimeout(()=>b.classList.remove('wrong'),450)}};c.querySelector('.fill-btn-row').appendChild(b)});pg.appendChild(c)});
-  const wp=document.getElementById('wordPickA2');const good=[...taa,...thaa];const bad=[{emoji:'🍇',word:'عنب'},{emoji:'🐱',word:'قطة'},{emoji:'🏠',word:'بيت'}];[...good.map(x=>({...x,ok:true})),...bad.map(x=>({...x,ok:false}))].sort(()=>Math.random()-.5).forEach(item=>{const c=document.createElement('div');c.className='pick-card';c.innerHTML='<div class="em">'+item.emoji+'</div><div class="wd ar">'+item.word+'</div>';c.onclick=()=>{if(c.classList.contains('disabled'))return;if(item.ok){c.classList.add('right','disabled');addStar(1);speak(item.word)}else{c.classList.add('wrong');setTimeout(()=>c.classList.remove('wrong'),450)}};wp.appendChild(c)});
+  const wp=document.getElementById('wordPickA2');const good=[...taa,...thaa];const bad=[{emoji:'🍇',word:'عنب'},{emoji:'🐱',word:'قطة'},{emoji:'🏠',word:'بيت'}];
+  [...good.map(x=>({...x,ok:true})),...bad.map(x=>({...x,ok:false}))].sort(()=>Math.random()-.5).forEach(item=>{
+    const c=document.createElement('div');c.className='pick-card';
+    c.innerHTML='<div class="em">'+item.emoji+'</div><div class="wd ar">'+item.word+'</div>';
+    c.onclick=()=>{if(c.classList.contains('disabled'))return;if(item.ok){c.classList.add('right','disabled');addStar(1);speak(item.word)}else{c.classList.add('wrong');setTimeout(()=>c.classList.remove('wrong'),450)}};
+    if(item.ok && window.FarisSpeechRec && window.FarisSpeechRec.supported()){
+      const mic=document.createElement('button');
+      mic.type='button';mic.className='mic-practice-btn';mic.textContent='🎤';
+      mic.setAttribute('aria-label','قل الكلمة '+item.word);
+      mic.style.marginTop='6px';
+      mic.onclick=(ev)=>{
+        ev.stopPropagation();
+        if(mic.classList.contains('listening'))return;
+        mic.classList.add('listening');mic.textContent='🔴';
+        window.FarisSpeechRec.practice(item.word,'ar-SA',(ok)=>{
+          mic.classList.remove('listening');mic.textContent='🎤';
+          if(ok){mic.classList.add('mic-ok');setTimeout(()=>mic.classList.remove('mic-ok'),900);addStar(1);if(window.farisSay)window.farisSay(null,'correct');}
+          else if(ok===false){mic.classList.add('mic-try');setTimeout(()=>mic.classList.remove('mic-try'),900);}
+        });
+      };
+      c.appendChild(mic);
+    }
+    wp.appendChild(c);
+  });
   const qa=[['أي حرف له ثلاث نقاط فوقه؟',['ت','ث','ب'],'ث'],['أين يظهر (ـتـ)؟',['أول الكلمة','وسط الكلمة','آخر الكلمة'],'وسط الكلمة'],['أي كلمة تبدأ بحرف التاء؟',['ثعلب','تفاح','بحث'],'تفاح'],['أي كلمة تبدأ بحرف الثاء؟',['تاج','بيت','ثعلب'],'ثعلب']];
   const area=document.getElementById('arabicQuizArea2');qa.forEach((q,i)=>{const d=document.createElement('div');d.className='quiz-q ar';d.innerHTML='<div class="q-text">'+(i+1)+'. '+q[0]+'</div><div class="q-options"></div>';q[1].forEach(o=>{const b=document.createElement('button');b.className='btn ghost ar';b.textContent=o;b.dataset.answer=o===q[2]?'1':'0';d.querySelector('.q-options').appendChild(b)});area.appendChild(d)});
   document.getElementById('submitArabicQuizBtn2').onclick=()=>{let score=0;area.querySelectorAll('.quiz-q').forEach(q=>{const chosen=q.querySelector('button.selected');q.querySelectorAll('button').forEach(b=>b.disabled=true);if(chosen&&chosen.dataset.answer==='1')score++});const result=document.getElementById('arabicQuizResult2');if(score===qa.length){addStar(3);result.textContent='أحسنت! كل الإجابات صحيحة ⭐⭐⭐';}else result.textContent='أحسنت! حصلت على '+score+' من '+qa.length+'، حاول مرة أخرى.';goTo(6)};
